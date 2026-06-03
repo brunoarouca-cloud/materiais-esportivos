@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Materiais Esportivos — Clube</title>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+
+<style>
+  :root {
+    --primary: #1a6b3c; --primary-light: #22883f; --accent: #f5a623;
+    --danger: #e74c3c; --warning: #f39c12; --success: #27ae60; --info: #2980b9;
+    --bg: #0d1117; --bg2: #161b22; --bg3: #21262d; --card: #1c2128;
+    --border: #30363d; --text: #e6edf3; --text2: #8b949e; --text3: #6e7681;
+    --radius: 12px; --shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; }
+
+  .hidden { display:none !important; }
+  .w-full { width:100%; }
+
+  /* LOADING SCREEN */
+  #screen-loading { position:fixed; inset:0; background:var(--bg); z-index:999; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
+  .spinner { width:48px; height:48px; border:4px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* CONFIG BANNER */
+  #config-banner { background:rgba(231,76,60,.12); border:1px solid rgba(231,76,60,.4); border-radius:10px; padding:16px 20px; margin:20px; font-size:13px; line-height:1.7; }
+  #config-banner strong { color:var(--accent); }
+  #config-banner code { background:var(--bg3); padding:2px 6px; border-radius:4px; font-family:monospace; font-size:12px; color:#f8c555; }
+
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:10px 20px; border-radius:8px; border:none; cursor:pointer; font-size:14px; font-weight:600; transition:all .2s; }
+  .btn-primary { background:var(--primary); color:#fff; }
+  .btn-primary:hover { background:var(--primary-light); transform:translateY(-1px); }
+  .btn-danger { background:var(--danger); color:#fff; }
+  .btn-danger:hover { background:#c0392b; }
+  .btn-ghost { background:transparent; color:var(--text2); border:1px solid var(--border); }
+  .btn-ghost:hover { background:var(--bg3); color:var(--text); }
+  .btn-sm { padding:6px 14px; font-size:12px; }
+  .btn-lg { padding:14px 28px; font-size:16px; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+
+  .input { width:100%; padding:10px 14px; background:var(--bg3); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; outline:none; transition:border .2s; }
+  .input:focus { border-color:var(--primary); }
+  .input::placeholder { color:var(--text3); }
+  .select { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b949e' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; padding-right:36px; }
+  .label { display:block; font-size:13px; font-weight:600; color:var(--text2); margin-bottom:6px; }
+  .form-group { margin-bottom:16px; }
+  textarea.input { resize:vertical; min-height:80px; }
+
+  .badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; }
+  .badge-pending  { background:rgba(243,156,18,.15); color:var(--warning); }
+  .badge-approved { background:rgba(39,174,96,.15);  color:var(--success); }
+  .badge-rejected { background:rgba(231,76,60,.15);  color:var(--danger);  }
+  .badge-delivered{ background:rgba(41,128,185,.15); color:var(--info);    }
+
+  .screen { display:none; min-height:100vh; }
+  .screen.active { display:flex; }
+
+  /* PROFILES */
+  #screen-profiles { background:linear-gradient(135deg,#0d1117 0%,#0f2a18 50%,#0d1117 100%); flex-direction:column; align-items:center; justify-content:center; padding:40px 20px; }
+  .logo-header { text-align:center; margin-bottom:56px; }
+  .logo-header .club-icon { font-size:56px; margin-bottom:12px; }
+  .logo-header h1 { font-size:28px; font-weight:800; letter-spacing:-.5px; }
+  .logo-header p { color:var(--text2); font-size:14px; margin-top:6px; }
+  .profiles-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:24px; max-width:700px; width:100%; }
+  .profile-card { display:flex; flex-direction:column; align-items:center; gap:12px; cursor:pointer; padding:20px 16px; border-radius:var(--radius); border:2px solid transparent; transition:all .25s; }
+  .profile-card:hover { background:rgba(255,255,255,.05); border-color:var(--primary); transform:scale(1.05); }
+  .profile-avatar { width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:32px; color:#fff; border:3px solid rgba(255,255,255,.1); transition:border-color .25s; }
+  .profile-card:hover .profile-avatar { border-color:var(--primary); }
+  .profile-name { font-size:13px; font-weight:600; color:var(--text2); text-align:center; }
+  .add-profile-btn { display:flex; flex-direction:column; align-items:center; gap:12px; cursor:pointer; padding:20px 16px; }
+  .add-profile-circle { width:80px; height:80px; border-radius:50%; border:3px dashed var(--border); display:flex; align-items:center; justify-content:center; font-size:32px; color:var(--text3); transition:all .25s; }
+  .add-profile-btn:hover .add-profile-circle { border-color:var(--text2); color:var(--text2); }
+
+  /* PIN */
+  #screen-pin { background:rgba(0,0,0,.85); backdrop-filter:blur(20px); flex-direction:column; align-items:center; justify-content:center; padding:40px 20px; position:fixed; inset:0; z-index:100; }
+  .pin-card { background:var(--bg2); border:1px solid var(--border); border-radius:20px; padding:40px; max-width:380px; width:100%; text-align:center; }
+  .pin-avatar { width:80px; height:80px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:36px; color:#fff; margin:0 auto 16px; }
+  .pin-card h2 { font-size:20px; font-weight:700; margin-bottom:6px; }
+  .pin-card p { color:var(--text2); font-size:13px; margin-bottom:24px; }
+  .pin-error { color:var(--danger); font-size:13px; margin-top:8px; min-height:20px; }
+
+  /* APP */
+  #screen-app { flex-direction:column; min-height:100vh; }
+  .app-topbar { background:var(--bg2); border-bottom:1px solid var(--border); padding:12px 20px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:50; }
+  .topbar-left { display:flex; align-items:center; gap:12px; }
+  .topbar-avatar { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:16px; color:#fff; }
+  .topbar-info h3 { font-size:14px; font-weight:700; }
+  .topbar-info p { font-size:11px; color:var(--text2); }
+  /* Live indicator */
+  .live-dot { width:8px; height:8px; border-radius:50%; background:var(--success); animation:pulse 2s infinite; margin-right:4px; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  .app-body { display:flex; flex:1; }
+  .sidebar { width:220px; background:var(--bg2); border-right:1px solid var(--border); padding:20px 12px; display:flex; flex-direction:column; gap:4px; flex-shrink:0; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:8px; cursor:pointer; color:var(--text2); font-size:14px; font-weight:500; transition:all .2s; border:1px solid transparent; }
+  .nav-item:hover { background:var(--bg3); color:var(--text); }
+  .nav-item.active { background:rgba(26,107,60,.2); color:var(--primary-light); border-color:rgba(26,107,60,.3); }
+  .nav-item .nav-icon { font-size:18px; width:22px; }
+  .nav-divider { height:1px; background:var(--border); margin:8px 0; }
+
+  .bottom-nav { display:none; background:var(--bg2); border-top:1px solid var(--border); position:sticky; bottom:0; z-index:50; }
+  .bottom-nav-inner { display:flex; }
+  .bottom-nav-item { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; padding:10px 4px; cursor:pointer; color:var(--text3); font-size:10px; font-weight:600; transition:color .2s; border:none; background:none; }
+  .bottom-nav-item .nav-icon { font-size:20px; }
+  .bottom-nav-item.active { color:var(--primary-light); }
+
+  .app-content { flex:1; overflow-y:auto; padding:24px; }
+  .page { display:none; }
+  .page.active { display:block; }
+  .page-header { margin-bottom:24px; }
+  .page-header h2 { font-size:22px; font-weight:800; }
+  .page-header p { color:var(--text2); font-size:13px; margin-top:4px; }
+
+  /* SOLICITAR */
+  .request-layout { display:grid; grid-template-columns:1fr 340px; gap:20px; }
+  .catalog-search { position:relative; margin-bottom:16px; }
+  .catalog-search input { padding-left:40px; }
+  .catalog-search .search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); font-size:16px; color:var(--text3); }
+  .catalog-filter-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  .filter-tab { padding:6px 14px; border-radius:20px; border:1px solid var(--border); background:transparent; color:var(--text2); font-size:12px; font-weight:600; cursor:pointer; transition:all .2s; }
+  .filter-tab.active,.filter-tab:hover { background:var(--primary); border-color:var(--primary); color:#fff; }
+  .catalog-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; }
+  .catalog-item-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px; cursor:pointer; transition:all .2s; position:relative; }
+  .catalog-item-card:hover { border-color:var(--primary); transform:translateY(-2px); box-shadow:0 4px 20px rgba(26,107,60,.2); }
+  .catalog-item-card.in-cart { border-color:var(--accent); background:rgba(245,166,35,.05); }
+  .catalog-item-icon { font-size:36px; margin-bottom:8px; }
+  .catalog-item-name { font-size:13px; font-weight:600; margin-bottom:2px; }
+  .catalog-item-category { font-size:11px; color:var(--text3); }
+  .catalog-item-badge { position:absolute; top:8px; right:8px; background:var(--accent); color:#1a1a1a; font-size:10px; font-weight:800; border-radius:10px; padding:2px 7px; }
+
+  .cart-panel { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; height:fit-content; position:sticky; top:84px; }
+  .cart-title { font-size:16px; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+  .cart-empty { text-align:center; color:var(--text3); font-size:13px; padding:30px 0; }
+  .cart-list { display:flex; flex-direction:column; gap:10px; margin-bottom:16px; }
+  .cart-item { background:var(--bg3); border-radius:8px; padding:10px 12px; }
+  .qty-control { display:flex; align-items:center; gap:8px; margin-top:6px; }
+  .qty-btn { width:28px; height:28px; border-radius:6px; border:1px solid var(--border); background:var(--bg2); color:var(--text); cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+  .qty-btn:hover { background:var(--primary); border-color:var(--primary); }
+  .qty-display { font-size:14px; font-weight:700; min-width:24px; text-align:center; }
+  .cart-remove { margin-left:auto; background:none; border:none; color:var(--text3); cursor:pointer; font-size:16px; }
+  .cart-remove:hover { color:var(--danger); }
+
+  .request-step { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:24px; max-width:600px; margin:0 auto; }
+  .step-indicator { display:flex; align-items:center; gap:8px; margin-bottom:24px; }
+  .step-dot { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; }
+  .step-dot.done { background:var(--primary); color:#fff; }
+  .step-dot.active { background:var(--accent); color:#1a1a1a; }
+  .step-dot.pending { background:var(--bg3); color:var(--text3); border:1px solid var(--border); }
+  .step-line { flex:1; height:2px; background:var(--border); }
+  .step-line.done { background:var(--primary); }
+
+  /* HISTÓRICO */
+  .request-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:12px; transition:border-color .2s; cursor:pointer; }
+  .request-card:hover { border-color:var(--primary); }
+  .request-card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-wrap:wrap; gap:8px; }
+
+  /* FORECAST */
+  .forecast-table-wrap { overflow-x:auto; }
+  .forecast-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .forecast-table th { text-align:left; padding:10px 14px; background:var(--bg3); color:var(--text2); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid var(--border); }
+  .forecast-table td { padding:12px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .forecast-table tr:hover td { background:rgba(255,255,255,.02); }
+  .forecast-bar { height:8px; border-radius:4px; background:var(--bg3); overflow:hidden; min-width:80px; }
+  .forecast-bar-fill { height:100%; border-radius:4px; }
+  .bar-ok { background:var(--success); }
+  .bar-warn { background:var(--warning); }
+  .bar-danger { background:var(--danger); }
+
+  /* CATÁLOGO */
+  .catalog-detail-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:16px; }
+  .catalog-detail-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; text-align:center; transition:all .2s; cursor:pointer; }
+  .catalog-detail-card:hover { border-color:var(--primary); transform:translateY(-2px); }
+
+  /* ADMIN */
+  #screen-admin { flex-direction:column; min-height:100vh; }
+  .admin-topbar { background:var(--bg2); border-bottom:1px solid rgba(245,166,35,.3); padding:12px 20px; display:flex; align-items:center; justify-content:space-between; }
+  .admin-badge-text { background:rgba(245,166,35,.15); color:var(--accent); padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; }
+  .admin-body { display:flex; flex:1; }
+  .admin-sidebar { width:220px; background:var(--bg2); border-right:1px solid var(--border); padding:20px 12px; display:flex; flex-direction:column; gap:4px; }
+  .admin-content { flex:1; overflow-y:auto; padding:24px; }
+
+  .stats-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:16px; margin-bottom:24px; }
+  .stat-card { background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; }
+  .stat-label { font-size:12px; color:var(--text2); font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
+  .stat-value { font-size:32px; font-weight:800; margin:6px 0 2px; }
+  .stat-sub { font-size:12px; color:var(--text3); }
+
+  .admin-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .admin-table th { text-align:left; padding:10px 14px; background:var(--bg3); color:var(--text2); font-weight:600; font-size:11px; text-transform:uppercase; border-bottom:1px solid var(--border); }
+  .admin-table td { padding:11px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .admin-table tr:hover td { background:rgba(255,255,255,.02); }
+
+  /* MODAL */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:200; align-items:center; justify-content:center; padding:20px; }
+  .modal-overlay.active { display:flex; }
+  .modal { background:var(--bg2); border:1px solid var(--border); border-radius:16px; padding:28px; max-width:520px; width:100%; max-height:90vh; overflow-y:auto; }
+  .modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+  .modal-title { font-size:18px; font-weight:700; }
+  .modal-close { background:none; border:none; color:var(--text3); cursor:pointer; font-size:20px; }
+  .modal-close:hover { color:var(--text); }
+  .modal-footer { display:flex; gap:10px; justify-content:flex-end; margin-top:20px; }
+
+  /* TOAST */
+  #toast-container { position:fixed; bottom:80px; right:20px; z-index:999; display:flex; flex-direction:column; gap:8px; }
+  .toast { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:12px 16px; font-size:13px; font-weight:600; min-width:220px; display:flex; align-items:center; gap:10px; animation:slideIn .3s ease; box-shadow:var(--shadow); }
+  .toast.success { border-color:var(--success); }
+  .toast.error   { border-color:var(--danger);  }
+  .toast.info    { border-color:var(--info);    }
+  @keyframes slideIn { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:translateX(0)} }
+
+  .empty-state { text-align:center; padding:60px 20px; color:var(--text3); }
+  .empty-state .empty-icon { font-size:52px; margin-bottom:16px; }
+  .empty-state h3 { font-size:16px; font-weight:600; color:var(--text2); margin-bottom:6px; }
+
+  /* RESPONSIVE */
+  @media (max-width:768px) {
+    .sidebar { display:none !important; }
+    .bottom-nav { display:flex; }
+    .app-content { padding:16px; padding-bottom:80px; }
+    .request-layout { grid-template-columns:1fr; }
+    .cart-panel { position:static; }
+    .catalog-grid { grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); }
+    .admin-sidebar { display:none; }
+    .stats-grid { grid-template-columns:1fr 1fr; }
+    .profiles-grid { grid-template-columns:repeat(3,1fr); gap:16px; }
+    .profile-avatar { width:64px; height:64px; font-size:26px; }
+    .logo-header { margin-bottom:36px; }
+    .logo-header h1 { font-size:22px; }
+  }
+  @media (max-width:380px) {
+    .profiles-grid { grid-template-columns:repeat(2,1fr); }
+    .catalog-grid { grid-template-columns:repeat(2,1fr); }
+  }
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="screen-loading">
+  <div style="font-size:48px;margin-bottom:16px;">⚽</div>
+  <div class="spinner"></div>
+  <p style="color:var(--text2);font-size:13px;margin-top:12px;" id="loading-msg">Conectando ao banco de dados...</p>
+</div>
+
+<!-- CONFIG BANNER (aparece se Firebase não estiver configurado) -->
+<div id="config-banner" class="hidden">
+  <strong>⚠️ Firebase não configurado</strong><br>
+  Abra este arquivo num editor de texto, encontre a seção <code>CONFIGURAÇÃO FIREBASE</code> e preencha com as chaves do seu projeto.<br>
+  Siga o guia <strong>CONFIGURACAO.md</strong> que veio junto com este arquivo.
+</div>
+
+<!-- SCREEN: PROFILES -->
+<div id="screen-profiles" class="screen">
+  <div class="logo-header">
+    <div class="club-icon">⚽</div>
+    <h1>Materiais Esportivos</h1>
+    <p>Selecione seu perfil para continuar</p>
+  </div>
+  <div class="profiles-grid" id="profiles-grid"></div>
+</div>
+
+<!-- SCREEN: PIN -->
+<div id="screen-pin" class="screen hidden">
+  <div class="pin-card">
+    <div class="pin-avatar" id="pin-avatar"></div>
+    <h2 id="pin-profile-name"></h2>
+    <p>Digite sua senha de acesso</p>
+    <div class="form-group" style="margin-top:16px;">
+      <input type="password" class="input" id="pin-input" placeholder="Senha" maxlength="20"/>
+    </div>
+    <p class="pin-error" id="pin-error"></p>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button class="btn btn-ghost w-full" onclick="goToProfiles()">← Voltar</button>
+      <button class="btn btn-primary w-full" onclick="tryLogin()">Entrar →</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: APP -->
+<div id="screen-app" class="screen hidden">
+  <div class="app-topbar">
+    <div class="topbar-left">
+      <div class="topbar-avatar" id="app-avatar"></div>
+      <div class="topbar-info">
+        <h3 id="app-profile-name"></h3>
+        <p id="app-profile-area"></p>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--success);">
+        <div class="live-dot"></div>Ao vivo
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="goToProfiles()">⏏ Sair</button>
+    </div>
+  </div>
+
+  <div class="app-body">
+    <div class="sidebar">
+      <div class="nav-item active" data-page="solicitar" onclick="showPage('solicitar',this)"><span class="nav-icon">📋</span> Solicitação</div>
+      <div class="nav-item" data-page="historico" onclick="showPage('historico',this)"><span class="nav-icon">📁</span> Histórico</div>
+      <div class="nav-item" data-page="forecast" onclick="showPage('forecast',this)"><span class="nav-icon">📊</span> Forecast</div>
+      <div class="nav-item" data-page="catalogo" onclick="showPage('catalogo',this)"><span class="nav-icon">🗂️</span> Catálogo</div>
+    </div>
+
+    <div class="app-content">
+      <!-- PAGE: SOLICITAR -->
+      <div id="page-solicitar" class="page active">
+        <div class="page-header"><h2>📋 Nova Solicitação</h2><p>Selecione os itens e adicione ao carrinho</p></div>
+        <div id="step-select">
+          <div class="request-layout">
+            <div>
+              <div class="catalog-search">
+                <span class="search-icon">🔍</span>
+                <input type="text" class="input" id="search-input" placeholder="Buscar material..." oninput="filterCatalog()">
+              </div>
+              <div class="catalog-filter-tabs" id="filter-tabs"></div>
+              <div class="catalog-grid" id="catalog-grid-solicitar"></div>
+            </div>
+            <div>
+              <div class="cart-panel">
+                <div class="cart-title">🛒 Carrinho <span id="cart-count" style="background:var(--accent);color:#1a1a1a;border-radius:12px;padding:2px 8px;font-size:12px;">0</span></div>
+                <div id="cart-list-el" class="cart-list"></div>
+                <div id="cart-empty-msg" class="cart-empty">Nenhum item adicionado.<br>Clique nos produtos ←</div>
+                <div style="height:1px;background:var(--border);margin:14px 0;"></div>
+                <button class="btn btn-primary w-full" onclick="goToStep2()" id="btn-checkout" disabled>Continuar →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="step-details" class="hidden">
+          <div class="request-step">
+            <div class="step-indicator">
+              <div class="step-dot done">✓</div><div class="step-line done"></div>
+              <div class="step-dot active">2</div><div class="step-line"></div>
+              <div class="step-dot pending">3</div>
+            </div>
+            <h3 style="font-size:18px;font-weight:700;margin-bottom:20px;">📅 Detalhes da Solicitação</h3>
+            <div id="step2-summary" style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:13px;line-height:1.6;"></div>
+            <div class="form-group"><label class="label">Data de Retirada *</label><input type="date" class="input" id="pickup-date"/></div>
+            <div class="form-group"><label class="label">Justificativa *</label><textarea class="input" id="justification" placeholder="Descreva o motivo, evento ou uso previsto para os materiais..."></textarea></div>
+            <div style="display:flex;gap:10px;">
+              <button class="btn btn-ghost w-full" onclick="goToStep1()">← Voltar</button>
+              <button class="btn btn-primary w-full" id="btn-submit" onclick="submitRequest()">✅ Enviar</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="step-success" class="hidden">
+          <div style="text-align:center;padding:60px 20px;">
+            <div style="font-size:64px;margin-bottom:16px;">🎉</div>
+            <h2 style="font-size:24px;font-weight:800;margin-bottom:8px;">Solicitação Enviada!</h2>
+            <p style="color:var(--text2);margin-bottom:24px;">Sua solicitação foi registrada e o administrador será notificado.</p>
+            <button class="btn btn-primary btn-lg" onclick="newRequest()">+ Nova Solicitação</button>
+            <button class="btn btn-ghost btn-lg" style="margin-left:8px;" onclick="showPage('historico',null)">Ver Histórico</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: HISTÓRICO -->
+      <div id="page-historico" class="page">
+        <div class="page-header"><h2>📁 Histórico</h2><p>Suas solicitações com status em tempo real</p></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+          <select class="input select" style="width:auto;" id="history-filter" onchange="renderHistory()">
+            <option value="">Todos os Status</option>
+            <option value="pending">Aguardando</option>
+            <option value="approved">Aprovado</option>
+            <option value="delivered">Entregue</option>
+            <option value="rejected">Recusado</option>
+          </select>
+        </div>
+        <div id="history-list"></div>
+      </div>
+
+      <!-- PAGE: FORECAST -->
+      <div id="page-forecast" class="page">
+        <div class="page-header"><h2>📊 Forecast Anual</h2><p>Orçamento vs. consumo real — dados em tempo real</p></div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+          <div class="forecast-table-wrap">
+            <table class="forecast-table">
+              <thead><tr><th>Material</th><th>Categoria</th><th>Orçamento</th><th>Solicitado</th><th>Saldo</th><th>Consumo</th></tr></thead>
+              <tbody id="forecast-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- PAGE: CATÁLOGO -->
+      <div id="page-catalogo" class="page">
+        <div class="page-header"><h2>🗂️ Catálogo</h2><p>Todos os materiais disponíveis</p></div>
+        <div class="catalog-search" style="max-width:400px;margin-bottom:20px;">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="input" id="catalog-search-main" placeholder="Buscar..." oninput="renderCatalog()">
+        </div>
+        <div class="catalog-detail-grid" id="catalog-detail-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-nav">
+    <div class="bottom-nav-inner">
+      <button class="bottom-nav-item active" data-page="solicitar" onclick="showPage('solicitar',this)"><span class="nav-icon">📋</span>Solicitar</button>
+      <button class="bottom-nav-item" data-page="historico" onclick="showPage('historico',this)"><span class="nav-icon">📁</span>Histórico</button>
+      <button class="bottom-nav-item" data-page="forecast" onclick="showPage('forecast',this)"><span class="nav-icon">📊</span>Forecast</button>
+      <button class="bottom-nav-item" data-page="catalogo" onclick="showPage('catalogo',this)"><span class="nav-icon">🗂️</span>Catálogo</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN: ADMIN -->
+<div id="screen-admin" class="screen hidden">
+  <div class="admin-topbar">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span style="font-size:24px;">⚙️</span>
+      <div>
+        <div style="font-size:15px;font-weight:700;">Painel Administrador</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--success);"><div class="live-dot"></div>Dados ao vivo</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="admin-badge-text">ADMIN MASTER</span>
+      <button class="btn btn-ghost btn-sm" onclick="goToProfiles()">⏏ Sair</button>
+    </div>
+  </div>
+
+  <div class="admin-body">
+    <div class="admin-sidebar">
+      <div class="nav-item active" data-ap="dashboard" onclick="showAdminPage('dashboard',this)"><span class="nav-icon">🏠</span> Dashboard</div>
+      <div class="nav-item" data-ap="solicitacoes" onclick="showAdminPage('solicitacoes',this)"><span class="nav-icon">📋</span> Solicitações <span id="pending-badge" style="background:var(--danger);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:auto;"></span></div>
+      <div class="nav-divider"></div>
+      <div class="nav-item" data-ap="perfis" onclick="showAdminPage('perfis',this)"><span class="nav-icon">👥</span> Perfis</div>
+      <div class="nav-item" data-ap="catalogo" onclick="showAdminPage('catalogo',this)"><span class="nav-icon">🗂️</span> Catálogo</div>
+      <div class="nav-item" data-ap="forecast-a" onclick="showAdminPage('forecast-a',this)"><span class="nav-icon">📊</span> Forecast</div>
+    </div>
+
+    <div class="admin-content">
+      <div id="admin-page-dashboard" class="page active">
+        <div class="page-header"><h2>🏠 Dashboard</h2><p>Visão geral em tempo real</p></div>
+        <div class="stats-grid" id="admin-stats"></div>
+        <h3 style="font-weight:700;margin-bottom:16px;">Solicitações Pendentes</h3>
+        <div id="admin-recent"></div>
+      </div>
+
+      <div id="admin-page-solicitacoes" class="page">
+        <div class="page-header"><h2>📋 Gerenciar Solicitações</h2><p>Aprove, recuse ou marque como entregue</p></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+          <select class="input select" style="width:auto;" id="admin-s-filter" onchange="renderAdminRequests()">
+            <option value="">Todos os Status</option>
+            <option value="pending">Aguardando</option>
+            <option value="approved">Aprovado</option>
+            <option value="delivered">Entregue</option>
+            <option value="rejected">Recusado</option>
+          </select>
+          <select class="input select" style="width:auto;" id="admin-p-filter" onchange="renderAdminRequests()"><option value="">Todos os Perfis</option></select>
+        </div>
+        <div id="admin-requests-list"></div>
+      </div>
+
+      <div id="admin-page-perfis" class="page">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:24px;">
+          <div><h2 style="font-size:22px;font-weight:800;">👥 Perfis</h2><p style="color:var(--text2);font-size:13px;margin-top:4px;">Gerencie os acessos ao sistema</p></div>
+          <button class="btn btn-primary" onclick="openProfileModal()">+ Novo Perfil</button>
+        </div>
+        <div style="overflow-x:auto;"><table class="admin-table"><thead><tr><th>Perfil</th><th>Área</th><th>Tipo</th><th>Ações</th></tr></thead><tbody id="profiles-tbody"></tbody></table></div>
+      </div>
+
+      <div id="admin-page-catalogo" class="page">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:24px;">
+          <div><h2 style="font-size:22px;font-weight:800;">🗂️ Catálogo</h2><p style="color:var(--text2);font-size:13px;margin-top:4px;">Itens disponíveis para solicitação</p></div>
+          <button class="btn btn-primary" onclick="openItemModal()">+ Novo Item</button>
+        </div>
+        <div style="overflow-x:auto;"><table class="admin-table"><thead><tr><th>Ícone</th><th>Nome</th><th>Categoria</th><th>Unidade</th><th>Ações</th></tr></thead><tbody id="catalog-tbody"></tbody></table></div>
+      </div>
+
+      <div id="admin-page-forecast-a" class="page">
+        <div class="page-header"><h2>📊 Forecast <span id="fy-label"></span></h2><p>Defina o orçamento anual por item</p></div>
+        <div style="overflow-x:auto;"><table class="admin-table"><thead><tr><th>Item</th><th>Categoria</th><th>Orçamento Anual</th><th>Ação</th></tr></thead><tbody id="forecast-admin-tbody"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Profile -->
+<div class="modal-overlay" id="modal-profile">
+  <div class="modal">
+    <div class="modal-header"><h3 class="modal-title" id="mpf-title">Novo Perfil</h3><button class="modal-close" onclick="closeModal('modal-profile')">✕</button></div>
+    <div class="form-group"><label class="label">Nome *</label><input type="text" class="input" id="pf-name" placeholder="Ex: Futebol Profissional"></div>
+    <div class="form-group"><label class="label">Área / Departamento</label><input type="text" class="input" id="pf-area" placeholder="Ex: Futebol, Fitness, Médico..."></div>
+    <div class="form-group"><label class="label">Senha *</label><input type="password" class="input" id="pf-pass" placeholder="Mínimo 4 caracteres"></div>
+    <div class="form-group"><label class="label">Emoji</label><input type="text" class="input" id="pf-emoji" placeholder="Ex: ⚽ 🏋️" maxlength="4"></div>
+    <div class="form-group"><label class="label">Cor do Avatar</label><div style="display:flex;gap:8px;flex-wrap:wrap;" id="color-picker"></div></div>
+    <div class="form-group"><label class="label">Tipo de Acesso</label><select class="input select" id="pf-type"><option value="user">Usuário</option><option value="admin">Administrador Master</option></select></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-profile')">Cancelar</button><button class="btn btn-primary" onclick="saveProfile()">Salvar</button></div>
+  </div>
+</div>
+
+<!-- MODAL: Item -->
+<div class="modal-overlay" id="modal-item">
+  <div class="modal">
+    <div class="modal-header"><h3 class="modal-title" id="mit-title">Novo Item</h3><button class="modal-close" onclick="closeModal('modal-item')">✕</button></div>
+    <div class="form-group"><label class="label">Nome *</label><input type="text" class="input" id="item-name" placeholder="Ex: Bola de Futebol Campo"></div>
+    <div class="form-group"><label class="label">Categoria *</label><input type="text" class="input" id="item-category" placeholder="Ex: Bolas, Vestuário..."></div>
+    <div class="form-group"><label class="label">Unidade</label><input type="text" class="input" id="item-unit" placeholder="Ex: Unidade, Par, Kg..."></div>
+    <div class="form-group"><label class="label">Emoji</label><input type="text" class="input" id="item-emoji" placeholder="Ex: ⚽ 👕" maxlength="4"></div>
+    <div class="form-group"><label class="label">Descrição</label><textarea class="input" id="item-desc" placeholder="Especificações, observações..."></textarea></div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="closeModal('modal-item')">Cancelar</button><button class="btn btn-primary" onclick="saveItem()">Salvar</button></div>
+  </div>
+</div>
+
+<!-- MODAL: Catalog Detail -->
+<div class="modal-overlay" id="modal-cat-detail">
+  <div class="modal" style="text-align:center;">
+    <div class="modal-header"><h3 class="modal-title">Detalhes do Item</h3><button class="modal-close" onclick="closeModal('modal-cat-detail')">✕</button></div>
+    <div id="cat-detail-content"></div>
+  </div>
+</div>
+
+<!-- MODAL: Request Detail -->
+<div class="modal-overlay" id="modal-req-detail">
+  <div class="modal">
+    <div class="modal-header"><h3 class="modal-title">Detalhes da Solicitação</h3><button class="modal-close" onclick="closeModal('modal-req-detail')">✕</button></div>
+    <div id="req-detail-content"></div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<!-- ================================================================ SCRIPT ================================================================ -->
+<script>
+// ╔══════════════════════════════════════════════════════════════╗
+// ║            CONFIGURAÇÃO FIREBASE — PREENCHA AQUI            ║
+// ║  Copie as chaves do seu projeto Firebase e cole abaixo.     ║
+// ║  Siga o arquivo CONFIGURACAO.md para instruções detalhadas. ║
+// ╚══════════════════════════════════════════════════════════════╝
+const firebaseConfig = {
+  apiKey:            "AIzaSyD0or9xoAtptZv9Urupynw0x9KjTdrUxIs",
+  authDomain:        "solicitacao-material-esportivo.firebaseapp.com",
+  databaseURL:       "https://solicitacao-material-esportivo-default-rtdb.firebaseio.com",
+  projectId:         "Csolicitacao-material-esportivo",
+  storageBucket:     "solicitacao-material-esportivo.firebasestorage.app",
+  messagingSenderId: "671135848765",
+  appId:             "1:671135848765:web:e5ccf3883bf3ea8a3f8d54",
+};
+// ════════════════════════════════════════════════════════════════
+
+const CONFIGURED = !Object.values(firebaseConfig).some(v => v.startsWith('COLE_AQUI'));
+const CUR_YEAR   = new Date().getFullYear();
+const COLORS     = ['#1a6b3c','#2980b9','#8e44ad','#e74c3c','#f39c12','#16a085','#2c3e50','#d35400','#1abc9c','#7f8c8d'];
+
+// ── In-memory state ──────────────────────────────────────────────
+let APP = { profiles:[], catalog:[], forecast:{}, requests:[] };
+let currentProfile = null;
+let cart = {};
+let selColor = COLORS[0];
+let editPfId = null;
+let editItemId = null;
+let catFilter = 'all';
+let db = null;
+
+// ── Helpers ───────────────────────────────────────────────────────
+function uid() { return Date.now().toString(36) + Math.random().toString(36).substr(2,4); }
+function fmtDate(s) { if(!s) return '—'; return new Date(s+'T00:00:00').toLocaleDateString('pt-BR'); }
+function fmtDT(s)   { if(!s) return '—'; return new Date(s).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}); }
+function getItem(id)    { return APP.catalog.find(i=>i.id===id); }
+function getProfile(id) { return APP.profiles.find(p=>p.id===id); }
+
+function statusBadge(s) {
+  const m={pending:'⏳ Aguardando',approved:'✅ Aprovado',rejected:'❌ Recusado',delivered:'📦 Entregue'};
+  return `<span class="badge badge-${s}">${m[s]||s}</span>`;
+}
+
+function toast(msg,type='info') {
+  const el=document.createElement('div'); el.className=`toast ${type}`;
+  el.innerHTML=`<span>${type==='success'?'✅':type==='error'?'❌':'ℹ️'}</span> ${msg}`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(()=>el.remove(),3200);
+}
+
+function setLoading(msg) {
+  document.getElementById('loading-msg').textContent = msg||'Carregando...';
+  document.getElementById('screen-loading').style.display='flex';
+}
+function hideLoading() { document.getElementById('screen-loading').style.display='none'; }
+
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+// ── Firebase conversion helpers ───────────────────────────────────
+function toObj(arr) { const o={}; arr.forEach(i=>o[i.id]=i); return o; }
+function fromObj(o) { if(!o) return []; return Object.values(o); }
+
+// ── Default data ──────────────────────────────────────────────────
+function defaultData() {
+  return {
+    profiles: [
+      {id:'admin',name:'Administrador',area:'Gestão do Clube', password:'admin123',emoji:'⚙️',color:'#f39c12',type:'admin'},
+      {id:'p1',   name:'Futebol Prof.',area:'Futebol Profissional', password:'1234',emoji:'⚽',color:'#1a6b3c',type:'user'},
+      {id:'p2',   name:'Base',         area:'Futebol de Base',       password:'1234',emoji:'🌱',color:'#2980b9',type:'user'},
+      {id:'p3',   name:'Fitness',      area:'Musculação e Cond.',     password:'1234',emoji:'🏋️',color:'#8e44ad',type:'user'},
+      {id:'p4',   name:'Médico',       area:'Departamento Médico',    password:'1234',emoji:'🏥',color:'#e74c3c',type:'user'},
+    ],
+    catalog: [
+      {id:'c1', name:'Bola de Futebol Campo',  category:'Bolas',        unit:'Unidade',emoji:'⚽',desc:'Bola oficial campo, couro sintético.'},
+      {id:'c2', name:'Bola de Futsal',          category:'Bolas',        unit:'Unidade',emoji:'🟠',desc:'Bola futsal tamanho 4.'},
+      {id:'c3', name:'Colete de Treino',         category:'Vestuário',    unit:'Unidade',emoji:'🦺',desc:'Colete colorido para divisão de times.'},
+      {id:'c4', name:'Chuteira Campo',           category:'Calçados',     unit:'Par',    emoji:'👟',desc:'Solado travado para campo.'},
+      {id:'c5', name:'Meias de Futebol',         category:'Vestuário',    unit:'Par',    emoji:'🧦',desc:'Meia cano alto.'},
+      {id:'c6', name:'Caneleira',                category:'Proteção',     unit:'Par',    emoji:'🦵',desc:'Proteção em EVA.'},
+      {id:'c7', name:'Luva de Goleiro',          category:'Proteção',     unit:'Par',    emoji:'🧤',desc:'Grip lateral profissional.'},
+      {id:'c8', name:'Cone de Treino',           category:'Equipamentos', unit:'Unidade',emoji:'🔶',desc:'Cone plástico 23cm.'},
+      {id:'c9', name:'Corda de Pular',           category:'Equipamentos', unit:'Unidade',emoji:'🪢',desc:'Individual para condicionamento.'},
+      {id:'c10',name:'Bandeirinha de Escanteio', category:'Equipamentos', unit:'Unidade',emoji:'🚩',desc:'Haste flexível oficial.'},
+      {id:'c11',name:'Rede de Gol',              category:'Equipamentos', unit:'Par',    emoji:'🥅',desc:'Náilon alta resistência.'},
+      {id:'c12',name:'Camisa de Treino',          category:'Vestuário',    unit:'Unidade',emoji:'👕',desc:'Dry-fit diversas cores.'},
+      {id:'c13',name:'Short de Treino',           category:'Vestuário',    unit:'Unidade',emoji:'🩳',desc:'Elástico e bolsos.'},
+      {id:'c14',name:'Fita Adesiva Esportiva',   category:'Médico',       unit:'Rolo',   emoji:'🩹',desc:'Proteção articular.'},
+      {id:'c15',name:'Gelo em Pacote',            category:'Médico',       unit:'Kg',     emoji:'🧊',desc:'Recuperação e lesões.'},
+      {id:'c16',name:'Haltere (par)',             category:'Musculação',   unit:'Par',    emoji:'🏋️',desc:'Borracha, diversas gramagens.'},
+      {id:'c17',name:'Bola de Vôlei',            category:'Bolas',        unit:'Unidade',emoji:'🏐',desc:'Couro sintético quadra.'},
+      {id:'c18',name:'Elástico de Treino',        category:'Musculação',   unit:'Unidade',emoji:'🟡',desc:'Fortalecimento muscular.'},
+    ],
+    forecast: { [CUR_YEAR]: {c1:40,c2:20,c3:60,c4:30,c5:80,c6:50,c7:10,c8:100,c9:30,c10:20,c11:4,c12:60,c13:60,c14:50,c15:200,c16:10,c17:10,c18:40} },
+    requests: []
+  };
+}
+
+// ════════════════════════════════════════════════════════════════
+// FIREBASE INIT & LOAD
+// ════════════════════════════════════════════════════════════════
+async function initFirebase() {
+  if(!CONFIGURED) {
+    document.getElementById('config-banner').classList.remove('hidden');
+    hideLoading();
+    // Fallback: use localStorage so non-configured users can still test locally
+    loadFromLocalStorage();
+    renderProfiles();
+    return;
+  }
+
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+
+    setLoading('Conectando ao Firebase...');
+
+    // Check if data exists, seed if not
+    const snap = await db.ref('/profiles').once('value');
+    if(!snap.exists()) {
+      setLoading('Primeira execução — configurando dados iniciais...');
+      const def = defaultData();
+      await db.ref('/profiles').set(toObj(def.profiles));
+      await db.ref('/catalog').set(toObj(def.catalog));
+      await db.ref('/forecast').set(def.forecast);
+      await db.ref('/requests').set({});
+    }
+
+    // Load all data
+    setLoading('Carregando dados...');
+    const [pfSnap, catSnap, fcSnap] = await Promise.all([
+      db.ref('/profiles').once('value'),
+      db.ref('/catalog').once('value'),
+      db.ref('/forecast').once('value'),
+    ]);
+
+    APP.profiles = fromObj(pfSnap.val());
+    APP.catalog  = fromObj(catSnap.val());
+    APP.forecast = fcSnap.val() || {};
+
+    // Real-time listener for requests
+    db.ref('/requests').on('value', snap => {
+      APP.requests = fromObj(snap.val());
+      // Re-render active views
+      if(document.getElementById('page-historico').classList.contains('active')) renderHistory();
+      if(document.getElementById('page-forecast').classList.contains('active')) renderForecast();
+      if(document.getElementById('admin-page-dashboard')?.classList.contains('active')) renderAdminDashboard();
+      if(document.getElementById('admin-page-solicitacoes')?.classList.contains('active')) renderAdminRequests();
+      updatePendingBadge();
+    });
+
+    // Real-time listener for profiles (admin edits propagate live)
+    db.ref('/profiles').on('value', snap => {
+      APP.profiles = fromObj(snap.val());
+      if(document.getElementById('profiles-tbody')) renderProfilesTable();
+    });
+
+    // Real-time for catalog
+    db.ref('/catalog').on('value', snap => {
+      APP.catalog = fromObj(snap.val());
+      if(document.getElementById('page-solicitar').classList.contains('active')) buildCatalog();
+      if(document.getElementById('catalog-tbody')) renderCatalogTable();
+    });
+
+    hideLoading();
+    renderProfiles();
+
+  } catch(e) {
+    hideLoading();
+    toast('Erro ao conectar com Firebase: ' + e.message, 'error');
+    console.error(e);
+    // Fallback to localStorage
+    loadFromLocalStorage();
+    renderProfiles();
+  }
+}
+
+// Fallback when not configured
+function loadFromLocalStorage() {
+  try { const d=JSON.parse(localStorage.getItem('materiais_v2')); if(d) { Object.assign(APP,d); return; } } catch{}
+  Object.assign(APP, defaultData());
+}
+function saveToLocalStorage() { localStorage.setItem('materiais_v2', JSON.stringify(APP)); }
+
+// ── Save helpers (Firebase or localStorage) ───────────────────────
+async function saveProfiles()  { if(db) await db.ref('/profiles').set(toObj(APP.profiles)); else saveToLocalStorage(); }
+async function saveCatalog()   { if(db) await db.ref('/catalog').set(toObj(APP.catalog));   else saveToLocalStorage(); }
+async function saveForecast()  { if(db) await db.ref('/forecast').set(APP.forecast);        else saveToLocalStorage(); }
+async function addRequest(req) { if(db) await db.ref('/requests/'+req.id).set(req); else { APP.requests.unshift(req); saveToLocalStorage(); } }
+async function updateRequest(id, data) { if(db) await db.ref('/requests/'+id).update(data); else { const r=APP.requests.find(x=>x.id===id); if(r) Object.assign(r,data); saveToLocalStorage(); } }
+async function deleteRequest(id) { if(db) await db.ref('/requests/'+id).remove(); else { APP.requests=APP.requests.filter(r=>r.id!==id); saveToLocalStorage(); } }
+
+// ════════════════════════════════════════════════════════════════
+// SCREENS & NAV
+// ════════════════════════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s=>{ s.classList.remove('active'); s.classList.add('hidden'); });
+  const el=document.getElementById(id);
+  el.classList.remove('hidden');
+  el.classList.add('active');
+}
+
+function renderProfiles() {
+  const g=document.getElementById('profiles-grid');
+  g.innerHTML = APP.profiles.map(p=>`
+    <div class="profile-card" onclick="selectProfile('${p.id}')">
+      <div class="profile-avatar" style="background:${p.color}">${p.emoji||p.name[0]}</div>
+      <div class="profile-name">${p.name}</div>
+    </div>
+  `).join('') + `
+    <div class="add-profile-btn" onclick="toast('Para adicionar perfis, acesse o Painel Admin.','info')">
+      <div class="add-profile-circle">+</div>
+      <div class="profile-name" style="color:var(--text3)">Adicionar</div>
+    </div>`;
+  showScreen('screen-profiles');
+}
+
+function goToProfiles() {
+  currentProfile=null; cart={};
+  renderProfiles();
+}
+
+function selectProfile(id) {
+  const p=getProfile(id); if(!p) return;
+  currentProfile=p;
+  const av=document.getElementById('pin-avatar');
+  av.style.background=p.color; av.textContent=p.emoji||p.name[0];
+  document.getElementById('pin-profile-name').textContent=p.name;
+  document.getElementById('pin-input').value='';
+  document.getElementById('pin-error').textContent='';
+  showScreen('screen-pin');
+  setTimeout(()=>document.getElementById('pin-input').focus(),100);
+}
+
+document.getElementById('pin-input').addEventListener('keydown',e=>{ if(e.key==='Enter') tryLogin(); });
+
+function tryLogin() {
+  const v=document.getElementById('pin-input').value;
+  if(!currentProfile) return;
+  if(v===currentProfile.password) { enterApp(); }
+  else { document.getElementById('pin-error').textContent='❌ Senha incorreta.'; document.getElementById('pin-input').value=''; document.getElementById('pin-input').focus(); }
+}
+
+function enterApp() {
+  if(currentProfile.type==='admin') {
+    showScreen('screen-admin');
+    showAdminPage('dashboard',document.querySelector('[data-ap="dashboard"]'));
+    return;
+  }
+  document.getElementById('app-avatar').style.background=currentProfile.color;
+  document.getElementById('app-avatar').textContent=currentProfile.emoji||currentProfile.name[0];
+  document.getElementById('app-profile-name').textContent=currentProfile.name;
+  document.getElementById('app-profile-area').textContent=currentProfile.area||'';
+  cart={};
+  showScreen('screen-app');
+  showPage('solicitar',document.querySelector('[data-page="solicitar"]'));
+  newRequest();
+}
+
+function showPage(name,el) {
+  document.querySelectorAll('#screen-app .page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('[data-page]').forEach(n=>n.classList.remove('active'));
+  if(el){ el.classList.add('active'); document.querySelectorAll(`[data-page="${el.dataset.page}"]`).forEach(n=>n.classList.add('active')); }
+  if(name==='historico') renderHistory();
+  if(name==='forecast')  renderForecast();
+  if(name==='catalogo')  renderCatalog();
+}
+
+function showAdminPage(name,el) {
+  document.querySelectorAll('#screen-admin .page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('admin-page-'+name).classList.add('active');
+  document.querySelectorAll('.admin-sidebar .nav-item').forEach(n=>n.classList.remove('active'));
+  if(el) el.classList.add('active');
+  if(name==='dashboard')   renderAdminDashboard();
+  if(name==='solicitacoes') renderAdminRequests();
+  if(name==='perfis')      renderProfilesTable();
+  if(name==='catalogo')    renderCatalogTable();
+  if(name==='forecast-a')  renderForecastAdmin();
+}
+
+function updatePendingBadge() {
+  const n=APP.requests.filter(r=>r.status==='pending').length;
+  const el=document.getElementById('pending-badge');
+  if(el) el.textContent = n>0?n:'';
+}
+
+// ════════════════════════════════════════════════════════════════
+// SOLICITAR
+// ════════════════════════════════════════════════════════════════
+function buildCatalog() {
+  const cats=[...new Set(APP.catalog.map(i=>i.category))].sort();
+  document.getElementById('filter-tabs').innerHTML=
+    `<button class="filter-tab ${catFilter==='all'?'active':''}" onclick="setCat('all')">Todos</button>`+
+    cats.map(c=>`<button class="filter-tab ${catFilter===c?'active':''}" onclick="setCat('${c}')">${c}</button>`).join('');
+  filterCatalog();
+}
+
+function setCat(c){ catFilter=c; buildCatalog(); }
+
+function filterCatalog() {
+  const q=(document.getElementById('search-input')?.value||'').toLowerCase();
+  const items=APP.catalog.filter(i=>(catFilter==='all'||i.category===catFilter)&&(!q||i.name.toLowerCase().includes(q)||i.category.toLowerCase().includes(q)));
+  document.getElementById('catalog-grid-solicitar').innerHTML=items.map(i=>{
+    const qty=cart[i.id]||0;
+    return `<div class="catalog-item-card ${qty>0?'in-cart':''}" onclick="addToCart('${i.id}')">
+      ${qty>0?`<span class="catalog-item-badge">${qty}</span>`:''}
+      <div class="catalog-item-icon">${i.emoji||'📦'}</div>
+      <div class="catalog-item-name">${i.name}</div>
+      <div class="catalog-item-category">${i.category}</div>
+    </div>`;
+  }).join('') || `<div style="color:var(--text3);font-size:13px;padding:20px;">Nenhum item encontrado.</div>`;
+}
+
+function addToCart(id){ cart[id]=(cart[id]||0)+1; updateCart(); filterCatalog(); }
+
+function updateCart() {
+  const items=Object.entries(cart).filter(([,q])=>q>0);
+  document.getElementById('cart-count').textContent=items.length;
+  const listEl=document.getElementById('cart-list-el');
+  const emptyMsg=document.getElementById('cart-empty-msg');
+  const btn=document.getElementById('btn-checkout');
+  if(!items.length){ listEl.innerHTML=''; emptyMsg.style.display='block'; btn.disabled=true; return; }
+  emptyMsg.style.display='none'; btn.disabled=false;
+  listEl.innerHTML=items.map(([id,qty])=>{
+    const it=getItem(id); if(!it) return '';
+    return `<div class="cart-item">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:13px;font-weight:600;">${it.emoji||'📦'} ${it.name}</div>
+        <button class="cart-remove" onclick="removeFromCart('${id}')">✕</button>
+      </div>
+      <div class="qty-control">
+        <button class="qty-btn" onclick="changeQty('${id}',-1)">−</button>
+        <span class="qty-display">${qty}</span>
+        <button class="qty-btn" onclick="changeQty('${id}',1)">+</button>
+        <span style="font-size:11px;color:var(--text3);margin-left:4px;">${it.unit}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function changeQty(id,d){ cart[id]=Math.max(0,(cart[id]||0)+d); if(!cart[id]) delete cart[id]; updateCart(); filterCatalog(); }
+function removeFromCart(id){ delete cart[id]; updateCart(); filterCatalog(); }
+
+function goToStep2() {
+  const items=Object.entries(cart).filter(([,q])=>q>0); if(!items.length) return;
+  document.getElementById('step-select').classList.add('hidden');
+  document.getElementById('step-details').classList.remove('hidden');
+  document.getElementById('step2-summary').innerHTML='<strong>Itens:</strong><br>'+items.map(([id,q])=>{ const it=getItem(id); return `${it?.emoji||'📦'} ${it?.name} — <strong>${q} ${it?.unit}</strong>`; }).join('<br>');
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('pickup-date').min=today; document.getElementById('pickup-date').value='';
+  document.getElementById('justification').value='';
+}
+
+function goToStep1(){ document.getElementById('step-details').classList.add('hidden'); document.getElementById('step-select').classList.remove('hidden'); }
+
+async function submitRequest() {
+  const date=document.getElementById('pickup-date').value;
+  const just=document.getElementById('justification').value.trim();
+  if(!date){ toast('Selecione a data de retirada.','error'); return; }
+  if(!just||just.length<10){ toast('Justificativa muito curta (mín. 10 caracteres).','error'); return; }
+  const btn=document.getElementById('btn-submit');
+  btn.disabled=true; btn.textContent='Enviando...';
+  const req={ id:uid(), profileId:currentProfile.id, createdAt:new Date().toISOString(), pickupDate:date, status:'pending', justification:just, items:Object.entries(cart).filter(([,q])=>q>0).map(([itemId,qty])=>({itemId,qty})) };
+  await addRequest(req);
+  btn.disabled=false; btn.textContent='✅ Enviar';
+  document.getElementById('step-details').classList.add('hidden');
+  document.getElementById('step-success').classList.remove('hidden');
+  toast('Solicitação enviada com sucesso!','success');
+  cart={};
+}
+
+function newRequest(){ cart={}; catFilter='all'; document.getElementById('step-select').classList.remove('hidden'); document.getElementById('step-details').classList.add('hidden'); document.getElementById('step-success').classList.add('hidden'); buildCatalog(); updateCart(); }
+
+// ════════════════════════════════════════════════════════════════
+// HISTÓRICO
+// ════════════════════════════════════════════════════════════════
+function renderHistory() {
+  const sf=document.getElementById('history-filter')?.value||'';
+  const el=document.getElementById('history-list'); if(!el) return;
+  let reqs=[...APP.requests].filter(r=>r.profileId===currentProfile?.id);
+  if(sf) reqs=reqs.filter(r=>r.status===sf);
+  reqs.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  if(!reqs.length){ el.innerHTML=`<div class="empty-state"><div class="empty-icon">📁</div><h3>Nenhuma solicitação</h3><p>Suas solicitações aparecerão aqui.</p></div>`; return; }
+  el.innerHTML=reqs.map(r=>{
+    const ilist=r.items.map(i=>{ const it=getItem(i.itemId); return `${it?.emoji||'📦'} ${it?.name} (${i.qty} ${it?.unit})`; }).join(', ');
+    return `<div class="request-card" onclick="openReqDetail('${r.id}')">
+      <div class="request-card-header"><span style="font-size:12px;color:var(--text3);">#${r.id.toUpperCase()}</span>${statusBadge(r.status)}</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:8px;">${ilist}</div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-bottom:8px;"><span>📅 ${fmtDT(r.createdAt)}</span><span>🚚 ${fmtDate(r.pickupDate)}</span></div>
+      <div style="font-size:12px;color:var(--text3);background:var(--bg3);padding:8px 12px;border-radius:6px;border-left:3px solid var(--border);">"${r.justification}"</div>
+    </div>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════════
+// FORECAST
+// ════════════════════════════════════════════════════════════════
+function renderForecast() {
+  const tbody=document.getElementById('forecast-tbody'); if(!tbody) return;
+  const fy=APP.forecast[CUR_YEAR]||{};
+  const consumed={};
+  APP.requests.filter(r=>['approved','delivered'].includes(r.status)).forEach(r=>r.items.forEach(i=>{ consumed[i.itemId]=(consumed[i.itemId]||0)+i.qty; }));
+  tbody.innerHTML=APP.catalog.map(it=>{
+    const b=fy[it.id]||0,u=consumed[it.id]||0,rem=b-u;
+    const pct=b>0?Math.min(100,Math.round(u/b*100)):0;
+    const bc=pct>=90?'bar-danger':pct>=70?'bar-warn':'bar-ok';
+    return `<tr>
+      <td><strong>${it.emoji||'📦'} ${it.name}</strong></td>
+      <td><span style="font-size:11px;color:var(--text3)">${it.category}</span></td>
+      <td><strong>${b}</strong> ${it.unit}</td>
+      <td>${u} ${it.unit}</td>
+      <td style="color:${rem<0?'var(--danger)':rem===0?'var(--warning)':'var(--success)'}"><strong>${rem}</strong> ${it.unit}</td>
+      <td style="min-width:120px;"><div style="display:flex;align-items:center;gap:8px;"><div class="forecast-bar" style="flex:1"><div class="forecast-bar-fill ${bc}" style="width:${pct}%"></div></div><span style="font-size:11px;color:var(--text3);min-width:30px;">${pct}%</span></div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════════════════
+// CATÁLOGO
+// ════════════════════════════════════════════════════════════════
+function renderCatalog() {
+  const q=(document.getElementById('catalog-search-main')?.value||'').toLowerCase();
+  const g=document.getElementById('catalog-detail-grid'); if(!g) return;
+  const items=APP.catalog.filter(i=>!q||i.name.toLowerCase().includes(q)||i.category.toLowerCase().includes(q));
+  g.innerHTML=items.map(i=>`
+    <div class="catalog-detail-card" onclick="openCatDetail('${i.id}')">
+      <div style="font-size:48px;margin-bottom:12px;">${i.emoji||'📦'}</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px;">${i.name}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">${i.desc||'Sem descrição'}</div>
+      <span style="font-size:11px;color:var(--text3);background:var(--bg3);padding:3px 8px;border-radius:6px;">📏 ${i.unit}</span>
+    </div>
+  `).join('') || `<div style="color:var(--text3);font-size:13px;">Nenhum item encontrado.</div>`;
+}
+
+function openCatDetail(id) {
+  const it=getItem(id); if(!it) return;
+  const b=(APP.forecast[CUR_YEAR]||{})[id]||0;
+  const consumed={}; APP.requests.filter(r=>['approved','delivered'].includes(r.status)).forEach(r=>r.items.forEach(i=>{ consumed[i.itemId]=(consumed[i.itemId]||0)+i.qty; }));
+  const u=consumed[id]||0;
+  document.getElementById('cat-detail-content').innerHTML=`
+    <div style="font-size:72px;margin:20px 0;">${it.emoji||'📦'}</div>
+    <h2 style="font-size:20px;font-weight:800;margin-bottom:6px;">${it.name}</h2>
+    <span style="background:var(--bg3);padding:3px 12px;border-radius:20px;font-size:12px;color:var(--text2);">${it.category}</span>
+    <p style="margin:16px 0;color:var(--text2);font-size:14px;text-align:left;">${it.desc||'Sem descrição.'}</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:left;">
+      ${[['Unidade',it.unit,'var(--text)'],['Orçamento '+CUR_YEAR,b+' '+it.unit,'var(--text)'],['Consumido',u+' '+it.unit,'var(--warning)'],['Saldo',(b-u)+' '+it.unit,b-u<0?'var(--danger)':'var(--success)']].map(([l,v,c])=>`
+      <div style="background:var(--bg3);padding:12px;border-radius:8px;">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">${l}</div>
+        <div style="font-weight:700;color:${c};">${v}</div>
+      </div>`).join('')}
+    </div>`;
+  openModal('modal-cat-detail');
+}
+
+// ════════════════════════════════════════════════════════════════
+// REQUEST DETAIL
+// ════════════════════════════════════════════════════════════════
+function openReqDetail(id) {
+  const r=APP.requests.find(x=>x.id===id); if(!r) return;
+  const p=getProfile(r.profileId);
+  document.getElementById('req-detail-content').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+      <span style="font-size:12px;color:var(--text3);">ID: #${r.id.toUpperCase()}</span>${statusBadge(r.status)}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px;margin-bottom:14px;">
+      ${[['Perfil',p?.name||'—'],['Área',p?.area||'—'],['Criado em',fmtDT(r.createdAt)],['Retirada',fmtDate(r.pickupDate)]].map(([l,v])=>`<div><span style="color:var(--text3)">${l}:</span> <strong>${v}</strong></div>`).join('')}
+    </div>
+    <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:8px;font-weight:700;">ITENS</div>
+      ${r.items.map(i=>{ const it=getItem(i.itemId); return `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:13px;"><span>${it?.emoji||'📦'} ${it?.name||'?'}</span><strong>${i.qty} ${it?.unit}</strong></div>`; }).join('')}
+    </div>
+    <div style="background:var(--bg3);border-radius:8px;padding:12px;border-left:3px solid var(--primary);">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:4px;">JUSTIFICATIVA</div>
+      <div style="font-size:13px;">"${r.justification}"</div>
+    </div>`;
+  openModal('modal-req-detail');
+}
+
+// ════════════════════════════════════════════════════════════════
+// ADMIN DASHBOARD
+// ════════════════════════════════════════════════════════════════
+function renderAdminDashboard() {
+  updatePendingBadge();
+  const pending=APP.requests.filter(r=>r.status==='pending').length;
+  document.getElementById('admin-stats').innerHTML=[
+    {l:'Pendentes',v:pending,s:'Aguardando aprovação',c:'var(--warning)'},
+    {l:'Total Solicitações',v:APP.requests.length,s:'Histórico completo',c:'var(--info)'},
+    {l:'Perfis',v:APP.profiles.filter(p=>p.type!=='admin').length,s:'Usuários ativos',c:'var(--primary-light)'},
+    {l:'Itens no Catálogo',v:APP.catalog.length,s:'Materiais disponíveis',c:'var(--accent)'},
+  ].map(s=>`<div class="stat-card"><div class="stat-label">${s.l}</div><div class="stat-value" style="color:${s.c}">${s.v}</div><div class="stat-sub">${s.s}</div></div>`).join('');
+
+  const pendings=[...APP.requests].filter(r=>r.status==='pending').sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
+  document.getElementById('admin-recent').innerHTML=pendings.length ? pendings.map(r=>{
+    const p=getProfile(r.profileId);
+    return `<div class="request-card">
+      <div class="request-card-header"><span style="font-size:13px;font-weight:600;">${p?.emoji||'👤'} ${p?.name||'?'} <span style="color:var(--text3);font-weight:400;">— ${p?.area||''}</span></span>${statusBadge(r.status)}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">${r.items.map(i=>`${getItem(i.itemId)?.name||'?'} (${i.qty})`).join(', ')}</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">🚚 Retirada: ${fmtDate(r.pickupDate)}</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button class="btn btn-sm" style="background:rgba(39,174,96,.15);color:var(--success);" onclick="setStatus('${r.id}','approved')">✅ Aprovar</button>
+        <button class="btn btn-sm" style="background:rgba(231,76,60,.15);color:var(--danger);"  onclick="setStatus('${r.id}','rejected')">❌ Recusar</button>
+        <button class="btn btn-ghost btn-sm" onclick="openReqDetail('${r.id}')">🔍 Ver</button>
+      </div>
+    </div>`;
+  }).join('') : `<div class="empty-state"><div class="empty-icon">✅</div><h3>Nenhuma pendência</h3><p>Todas as solicitações foram processadas.</p></div>`;
+}
+
+async function setStatus(id, status) {
+  await updateRequest(id,{status});
+  toast('Status atualizado!','success');
+}
+
+// ════════════════════════════════════════════════════════════════
+// ADMIN: SOLICITAÇÕES
+// ════════════════════════════════════════════════════════════════
+function renderAdminRequests() {
+  const sf=document.getElementById('admin-s-filter')?.value||'';
+  const pf=document.getElementById('admin-p-filter')?.value||'';
+  const pfSel=document.getElementById('admin-p-filter');
+  if(pfSel&&pfSel.options.length<=1) APP.profiles.forEach(p=>{ const o=new Option(p.name,p.id); pfSel.add(o); });
+  let reqs=[...APP.requests];
+  if(sf) reqs=reqs.filter(r=>r.status===sf);
+  if(pf) reqs=reqs.filter(r=>r.profileId===pf);
+  reqs.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+  const el=document.getElementById('admin-requests-list');
+  el.innerHTML=reqs.map(r=>{
+    const p=getProfile(r.profileId);
+    return `<div class="request-card">
+      <div class="request-card-header">
+        <div><span style="font-weight:700;">${p?.emoji||'👤'} ${p?.name||'?'}</span> <span style="font-size:12px;color:var(--text3);">${p?.area||''}</span></div>${statusBadge(r.status)}
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;">${r.items.map(i=>{ const it=getItem(i.itemId); return `${it?.emoji||'📦'} ${it?.name} (${i.qty} ${it?.unit})`; }).join(' · ')}</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">📅 ${fmtDT(r.createdAt)} &nbsp;|&nbsp; 🚚 ${fmtDate(r.pickupDate)}</div>
+      <div style="background:var(--bg3);padding:8px 12px;border-radius:6px;font-size:12px;margin-bottom:10px;border-left:3px solid var(--border);">"${r.justification}"</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${r.status==='pending'?`<button class="btn btn-sm" style="background:rgba(39,174,96,.15);color:var(--success);" onclick="setStatus('${r.id}','approved');renderAdminRequests()">✅ Aprovar</button><button class="btn btn-sm" style="background:rgba(231,76,60,.15);color:var(--danger);" onclick="setStatus('${r.id}','rejected');renderAdminRequests()">❌ Recusar</button>`:''}
+        ${r.status==='approved'?`<button class="btn btn-sm" style="background:rgba(41,128,185,.15);color:var(--info);" onclick="setStatus('${r.id}','delivered');renderAdminRequests()">📦 Entregue</button>`:''}
+        <button class="btn btn-ghost btn-sm" onclick="openReqDetail('${r.id}')">🔍 Ver</button>
+        <button class="btn btn-sm" style="background:rgba(231,76,60,.1);color:var(--danger);" onclick="delReq('${r.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('') || `<div class="empty-state"><div class="empty-icon">📋</div><h3>Nenhuma solicitação</h3></div>`;
+}
+
+async function delReq(id){ if(!confirm('Excluir esta solicitação?')) return; await deleteRequest(id); renderAdminRequests(); toast('Excluído.','info'); }
+
+// ════════════════════════════════════════════════════════════════
+// ADMIN: PERFIS
+// ════════════════════════════════════════════════════════════════
+function renderProfilesTable() {
+  document.getElementById('profiles-tbody').innerHTML=APP.profiles.map(p=>`
+    <tr>
+      <td><div style="display:flex;align-items:center;gap:10px;"><div style="width:36px;height:36px;border-radius:50%;background:${p.color};display:flex;align-items:center;justify-content:center;font-size:16px;">${p.emoji||p.name[0]}</div><span style="font-weight:600;">${p.name}</span></div></td>
+      <td style="color:var(--text2);">${p.area||'—'}</td>
+      <td>${p.type==='admin'?`<span class="badge" style="background:rgba(245,166,35,.15);color:var(--accent);">ADMIN</span>`:`<span class="badge badge-approved">Usuário</span>`}</td>
+      <td><div style="display:flex;gap:6px;"><button class="btn btn-ghost btn-sm" onclick="openProfileModal('${p.id}')">✏️ Editar</button>${p.id!=='admin'?`<button class="btn btn-sm btn-danger" onclick="delProfile('${p.id}')">🗑️</button>`:''}</div></td>
+    </tr>`).join('');
+}
+
+function openProfileModal(id) {
+  editPfId=id||null; const p=id?getProfile(id):null;
+  document.getElementById('mpf-title').textContent=p?'Editar Perfil':'Novo Perfil';
+  document.getElementById('pf-name').value=p?.name||'';
+  document.getElementById('pf-area').value=p?.area||'';
+  document.getElementById('pf-pass').value=p?.password||'';
+  document.getElementById('pf-emoji').value=p?.emoji||'';
+  document.getElementById('pf-type').value=p?.type||'user';
+  selColor=p?.color||COLORS[0];
+  document.getElementById('color-picker').innerHTML=COLORS.map(c=>`<div onclick="pickColor('${c}')" style="width:32px;height:32px;border-radius:50%;background:${c};cursor:pointer;border:3px solid ${c===selColor?'#fff':'transparent'};transition:border .15s;" id="cp-${c.replace('#','')}"></div>`).join('');
+  openModal('modal-profile');
+}
+
+function pickColor(c){ selColor=c; document.querySelectorAll('#color-picker div').forEach(d=>d.style.border='3px solid transparent'); const el=document.getElementById('cp-'+c.replace('#','')); if(el) el.style.border='3px solid #fff'; }
+
+async function saveProfile() {
+  const name=document.getElementById('pf-name').value.trim();
+  const pass=document.getElementById('pf-pass').value;
+  if(!name){ toast('Nome obrigatório.','error'); return; }
+  if(!pass||pass.length<4){ toast('Senha: mínimo 4 caracteres.','error'); return; }
+  const data={ name, area:document.getElementById('pf-area').value.trim(), password:pass, emoji:document.getElementById('pf-emoji').value.trim(), color:selColor, type:document.getElementById('pf-type').value };
+  if(editPfId){ Object.assign(getProfile(editPfId),data); }
+  else { APP.profiles.push({ id:'p'+Date.now(), ...data }); }
+  await saveProfiles();
+  closeModal('modal-profile'); renderProfilesTable();
+  toast(editPfId?'Perfil atualizado!':'Perfil criado!','success');
+}
+
+async function delProfile(id){ if(!confirm('Excluir este perfil?')) return; APP.profiles=APP.profiles.filter(p=>p.id!==id); await saveProfiles(); renderProfilesTable(); toast('Excluído.','info'); }
+
+// ════════════════════════════════════════════════════════════════
+// ADMIN: CATÁLOGO
+// ════════════════════════════════════════════════════════════════
+function renderCatalogTable() {
+  document.getElementById('catalog-tbody').innerHTML=APP.catalog.map(i=>`
+    <tr>
+      <td style="font-size:22px;">${i.emoji||'📦'}</td>
+      <td style="font-weight:600;">${i.name}</td>
+      <td style="color:var(--text2);">${i.category}</td>
+      <td style="color:var(--text3);">${i.unit}</td>
+      <td><div style="display:flex;gap:6px;"><button class="btn btn-ghost btn-sm" onclick="openItemModal('${i.id}')">✏️</button><button class="btn btn-sm btn-danger" onclick="delItem('${i.id}')">🗑️</button></div></td>
+    </tr>`).join('');
+}
+
+function openItemModal(id) {
+  editItemId=id||null; const it=id?getItem(id):null;
+  document.getElementById('mit-title').textContent=it?'Editar Item':'Novo Item';
+  document.getElementById('item-name').value=it?.name||'';
+  document.getElementById('item-category').value=it?.category||'';
+  document.getElementById('item-unit').value=it?.unit||'Unidade';
+  document.getElementById('item-emoji').value=it?.emoji||'';
+  document.getElementById('item-desc').value=it?.desc||'';
+  openModal('modal-item');
+}
+
+async function saveItem() {
+  const name=document.getElementById('item-name').value.trim();
+  const cat=document.getElementById('item-category').value.trim();
+  if(!name||!cat){ toast('Nome e categoria obrigatórios.','error'); return; }
+  const data={ name, category:cat, unit:document.getElementById('item-unit').value.trim()||'Unidade', emoji:document.getElementById('item-emoji').value.trim(), desc:document.getElementById('item-desc').value.trim() };
+  if(editItemId){ Object.assign(getItem(editItemId),data); }
+  else { APP.catalog.push({ id:'c'+Date.now(), ...data }); }
+  await saveCatalog();
+  closeModal('modal-item'); renderCatalogTable();
+  toast(editItemId?'Item atualizado!':'Item criado!','success');
+}
+
+async function delItem(id){ if(!confirm('Remover este item?')) return; APP.catalog=APP.catalog.filter(i=>i.id!==id); await saveCatalog(); renderCatalogTable(); toast('Removido.','info'); }
+
+// ════════════════════════════════════════════════════════════════
+// ADMIN: FORECAST
+// ════════════════════════════════════════════════════════════════
+function renderForecastAdmin() {
+  document.getElementById('fy-label').textContent=CUR_YEAR;
+  const fy=APP.forecast[CUR_YEAR]||{};
+  document.getElementById('forecast-admin-tbody').innerHTML=APP.catalog.map(i=>`
+    <tr>
+      <td><strong>${i.emoji||'📦'} ${i.name}</strong></td>
+      <td style="color:var(--text2);">${i.category}</td>
+      <td><div style="display:flex;align-items:center;gap:8px;"><input type="number" class="input" style="width:100px;" min="0" value="${fy[i.id]||0}" id="fc-${i.id}"> <span style="color:var(--text3);">${i.unit}</span></div></td>
+      <td><button class="btn btn-ghost btn-sm" onclick="saveFc('${i.id}')">💾 Salvar</button></td>
+    </tr>`).join('');
+}
+
+async function saveFc(id){
+  const v=parseInt(document.getElementById('fc-'+id)?.value)||0;
+  if(!APP.forecast[CUR_YEAR]) APP.forecast[CUR_YEAR]={};
+  APP.forecast[CUR_YEAR][id]=v;
+  await saveForecast();
+  toast('Salvo!','success');
+}
+
+// ════════════════════════════════════════════════════════════════
+// START
+// ════════════════════════════════════════════════════════════════
+initFirebase();
+</script>
+</body>
+</html>
